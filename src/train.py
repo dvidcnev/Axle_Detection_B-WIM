@@ -240,8 +240,17 @@ def train(
     print("\n--- Loading best checkpoint for test evaluation ---")
     ckpt = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(ckpt["state_dict"])
-    test_metrics = evaluate_model(model, test_loader, device)
-    print("Test results:")
+    
+    # Threshold sweep on validation set
+    print("Sweeping probability thresholds on validation set...")
+    from src.evaluate import get_model_predictions, find_best_threshold
+    val_targets, val_preds = get_model_predictions(model, val_loader, device)
+    best_thresh, val_best_metrics = find_best_threshold(val_targets, val_preds)
+    print(f"Optimal threshold found: {best_thresh:.2f} (Val F1={val_best_metrics['f1']:.4f})")
+
+    # Evaluate on test set with optimal threshold
+    test_metrics = evaluate_model(model, test_loader, device, threshold=best_thresh)
+    print(f"Test results (thresh={best_thresh:.2f}):")
     print_metrics(test_metrics, prefix="test")
     print(f"Log saved to: {log_path}")
     return test_metrics

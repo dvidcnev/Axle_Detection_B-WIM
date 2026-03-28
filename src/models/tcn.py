@@ -53,11 +53,10 @@ class TCNBlock(nn.Module):
         assert kernel_size % 2 == 1, "kernel_size must be odd for symmetric padding"
         pad = dilation * (kernel_size - 1) // 2  # keeps sequence length constant
 
-        self.conv1 = nn.utils.parametrize.register_parametrization if False else \
-            nn.utils.weight_norm(
-                nn.Conv1d(in_channels, out_channels, kernel_size,
-                          dilation=dilation, padding=pad)
-            )
+        self.conv1 = nn.utils.weight_norm(
+            nn.Conv1d(in_channels, out_channels, kernel_size,
+                      dilation=dilation, padding=pad)
+        )
         self.bn1    = nn.BatchNorm1d(out_channels)
         self.relu1  = nn.ReLU(inplace=True)
         self.drop1  = nn.Dropout(dropout)
@@ -111,7 +110,7 @@ class AxleTCN(nn.Module):
         in_channels: int = 1,
         num_channels: int = 64,
         kernel_size: int = 3,
-        num_blocks: int = 8,
+        num_blocks: int = 9,
         dropout: float = 0.2,
     ):
         super().__init__()

@@ -209,6 +209,48 @@ def evaluate_model(
         threshold=threshold,
     )
 
+@torch.no_grad()
+def get_model_predictions(
+    model: torch.nn.Module,
+    loader: DataLoader,
+    device: torch.device,
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    """Returns targets and predicted probabilities for the entire loader."""
+    model.eval()
+    all_targets: List[np.ndarray] = []
+    all_preds:   List[np.ndarray] = []
+
+    for signals, pulses in loader:
+        signals = signals.to(device)
+        logits  = model(signals)
+        probs   = torch.sigmoid(logits).cpu().numpy()
+        targets = pulses.numpy()
+
+        for b in range(len(targets)):
+            all_targets.append(targets[b])
+            all_preds.append(probs[b])
+
+    return all_targets, all_preds
+
+def find_best_threshold(
+    targets: List[np.ndarray],
+    preds: List[np.ndarray],
+    tolerance: int = 5,
+    thresholds: Tuple[float, ...] = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+) -> Tuple[float, Dict[str, float]]:
+    best_f1 = -1.0
+    best_thresh = 0.5
+    best_metrics = {}
+
+    for th in thresholds:
+        m = axle_level_metrics(targets, preds, tolerance=tolerance, threshold=th)
+        if m["f1"] > best_f1:
+            best_f1 = m["f1"]
+            best_thresh = th
+            best_metrics = m
+
+    return best_thresh, best_metrics
+
 
 # ---------------------------------------------------------------------------
 # Pretty-print
