@@ -1,0 +1,32 @@
+﻿.venv\Scripts\python.exe : 
+D:\Thesis\.venv\Lib\site-packages\torch\nn\utils\weight_norm.py:143: 
+FutureWarning: `torch.nn.utils.weight_norm` is deprecated in favor of 
+`torch.nn.utils.parametrizations.weight_norm`.
+At line:1 char:32
++ ... "D:\Thesis"; .venv\Scripts\python.exe scripts\compare.py 2>&1 | Out-F ...
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (D:\Thesis\.venv...s.weight_norm`. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  WeightNorm.apply(module, name, dim)
+Loaded 32,141 records from axle_data.json
+  Train: 25,712  |  Val: 3,214  |  Test: 3,215
+  Signal stats (train) ù mean: 0.0322, std: 0.1866
+Baseline:
+[Baseline] Precision: 0.9969  Recall: 0.8843  F1: 0.9372  MATE: 0.87 samples  (TP=12888, FP=40, FN=1686)
+CNN:
+[CNN] Precision: 0.9945  Recall: 0.9999  F1: 0.9972  MATE: 0.23 samples  (TP=14572, FP=81, FN=2)
+TCN:
+[TCN] Precision: 0.9971  Recall: 1.0000  F1: 0.9985  MATE: 0.23 samples  (TP=14574, FP=43, FN=0)
+
+Summary:
+                           Precision    Recall        F1  ...     TP  FP    FN
+Method                                                    ...                 
+Peak Detection (baseline)   0.996906  0.884315  0.937241  ...  12888  40  1686
+1D U-Net CNN                0.994472  0.999863  0.997160  ...  14572  81     2
+TCN                         0.997058  1.000000  0.998527  ...  14574  43     0
+
+[3 rows x 7 columns]
+
+Saved plots to outputs/ (comparison_bar.png, f1_vs_tolerance.png, training_curves.png)

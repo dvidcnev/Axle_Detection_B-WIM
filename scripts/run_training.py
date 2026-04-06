@@ -96,6 +96,8 @@ def main():
                         help=f"Random seed (default: {DEFAULTS['seed']})")
     parser.add_argument("--json_path",   type=str,   default=DEFAULTS["json_path"],
                         help=f"Path to axle_data.json (default: {DEFAULTS['json_path']})")
+    parser.add_argument("--resume",      action="store_true",
+                        help="Continue training from the best saved checkpoint.")
 
     args = parser.parse_args()
 
@@ -109,6 +111,8 @@ def main():
         "--seed",        str(args.seed),
         "--json_path",   args.json_path,
     ]
+    if args.resume:
+        forward.append("--resume")
 
     models = ["cnn", "tcn"] if args.model == "both" else [args.model]
 
@@ -118,6 +122,8 @@ def main():
     print(f"  Batch size : {args.batch_size}")
     print(f"  LR         : {args.lr}")
     print(f"  Patience   : {args.patience}")
+    if args.resume:
+        print(f"  Mode       : RESUME from checkpoint")
     print(f"\nTip: open a second terminal and run:")
     print(f"     python scripts/watch_training.py --model {args.model} --epochs {args.epochs}")
 

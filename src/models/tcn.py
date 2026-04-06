@@ -53,7 +53,7 @@ class TCNBlock(nn.Module):
         assert kernel_size % 2 == 1, "kernel_size must be odd for symmetric padding"
         pad = dilation * (kernel_size - 1) // 2  # keeps sequence length constant
 
-        self.conv1 = nn.utils.weight_norm(
+        self.conv1 = nn.utils.parametrizations.weight_norm(
             nn.Conv1d(in_channels, out_channels, kernel_size,
                       dilation=dilation, padding=pad)
         )
@@ -61,7 +61,7 @@ class TCNBlock(nn.Module):
         self.relu1  = nn.ReLU(inplace=True)
         self.drop1  = nn.Dropout(dropout)
 
-        self.conv2 = nn.utils.weight_norm(
+        self.conv2 = nn.utils.parametrizations.weight_norm(
             nn.Conv1d(out_channels, out_channels, kernel_size,
                       dilation=dilation, padding=pad)
         )
@@ -146,7 +146,8 @@ class AxleTCN(nn.Module):
     def receptive_field(self) -> int:
         """Compute the theoretical receptive field of the network."""
         num_blocks  = len(self.network)
-        kernel_size = self.network[0].conv1.weight.shape[-1]
+        # parametrizations.weight_norm stores kernel_size in the original module
+        kernel_size = self.network[0].conv1.parametrizations.weight.original.shape[-1]
         rf = 1 + sum(2 * (kernel_size - 1) * (2 ** i) for i in range(num_blocks))
         return rf
 

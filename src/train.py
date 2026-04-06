@@ -133,6 +133,7 @@ def train(
     num_workers: int   = 0,
     seed:        int   = 42,
     checkpoint_dir: str = "checkpoints",
+    resume:      bool  = False,
 ):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -179,16 +180,47 @@ def train(
     log_path  = os.path.join(checkpoint_dir, f"{model_name}_log.csv")
     ckpt_path = os.path.join(checkpoint_dir, f"{model_name}_best.pt")
 
-    with open(log_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow(["epoch", "train_loss", "val_loss", "val_f1",
-                         "val_precision", "val_recall", "val_mate", "lr"])
+    # --- Resume from checkpoint ---
+    best_val_f1 = -1.0
+    no_improve  = 0
+    start_epoch = 1
+
+    if resume:
+        if os.path.exists(ckpt_path):
+            ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
+            try:
+                model.load_state_dict(ckpt["state_dict"])
+                best_val_f1 = ckpt.get("val_f1", -1.0)
+                start_epoch = ckpt.get("epoch", 0) + 1
+                if "optimizer_state_dict" in ckpt:
+                    optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+                    print(f"  Restored optimizer state.")
+                else:
+                    print(f"  No optimizer state in checkpoint — using lr={lr:.2e}")
+                if "scheduler_state_dict" in ckpt:
+                    scheduler.load_state_dict(ckpt["scheduler_state_dict"])
+                print(f"  Resuming from epoch {start_epoch}  "
+                      f"(best val F1 so far: {best_val_f1:.4f})")
+            except RuntimeError as e:
+                print(f"  [WARNING] Could not load checkpoint weights: {e}")
+                print(f"  Starting from scratch (checkpoint may be from a different model version).")
+                start_epoch = 1
+                best_val_f1 = -1.0
+        else:
+            print(f"  [WARNING] --resume set but no checkpoint found at {ckpt_path}. "
+                  f"Starting from scratch.")
+
+    # Write log header only for fresh runs; append on resume
+    if not resume or not os.path.exists(log_path):
+        with open(log_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["epoch", "train_loss", "val_loss", "val_f1",
+                             "val_precision", "val_recall", "val_mate", "lr"])
+
+    end_epoch = start_epoch + epochs - 1
 
     # --- Training loop ---
-    best_val_f1  = -1.0
-    no_improve   = 0
-
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, end_epoch + 1):
         t0 = time.time()
 
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, scaler)
@@ -201,7 +233,7 @@ def train(
 
         elapsed = time.time() - t0
         print(
-            f"Epoch {epoch:3d}/{epochs} | "
+            f"Epoch {epoch:3d}/{end_epoch} | "
             f"train_loss={train_loss:.5f}  val_loss={val_loss:.5f} | ",
             end="",
         )
@@ -223,11 +255,13 @@ def train(
             best_val_f1 = val_f1
             no_improve  = 0
             torch.save({
-                "epoch":      epoch,
-                "model_name": model_name,
-                "state_dict": model.state_dict(),
-                "val_f1":     val_f1,
-                "val_metrics": val_metrics,
+                "epoch":               epoch,
+                "model_name":          model_name,
+                "state_dict":          model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "val_f1":              val_f1,
+                "val_metrics":         val_metrics,
             }, ckpt_path)
             print(f"  ✓ Saved best checkpoint (val F1={val_f1:.4f})")
         else:
@@ -271,6 +305,8 @@ if __name__ == "__main__":
     parser.add_argument("--patience",    type=int,   default=10)
     parser.add_argument("--num_workers", type=int,   default=0)
     parser.add_argument("--seed",        type=int,   default=42)
+    parser.add_argument("--resume",      action="store_true",
+                        help="Continue training from the best saved checkpoint.")
     args = parser.parse_args()
 
     train(
@@ -282,4 +318,5 @@ if __name__ == "__main__":
         patience     = args.patience,
         num_workers  = args.num_workers,
         seed         = args.seed,
+        resume       = args.resume,
     )
