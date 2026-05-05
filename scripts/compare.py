@@ -64,23 +64,53 @@ print('\nSummary:')
 print(df)
 
 def save_bar_chart(base_metrics, cnn_metrics, tcn_metrics, tol):
-    labels = ['Baseline','CNN','TCN']
+    labels = ['Baseline', 'CNN', 'TCN']
     metrics_list = [base_metrics, cnn_metrics, tcn_metrics]
+    colours = ['steelblue', 'darkorange', 'seagreen']
     x = np.arange(len(labels))
     width = 0.22
-    fig, axes = plt.subplots(1,2,figsize=(12,4))
-    # scores
-    axes[0].bar(x - width, [m['precision'] for m in metrics_list], width, label='Precision')
-    axes[0].bar(x, [m['recall'] for m in metrics_list], width, label='Recall')
-    axes[0].bar(x + width, [m['f1'] for m in metrics_list], width, label='F1')
-    axes[0].set_xticks(x); axes[0].set_xticklabels(labels)
-    axes[0].set_ylim(0,1.05); axes[0].set_title(f'Scores (tol={tol})')
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    # --- scores panel ---
+    bar_prec = axes[0].bar(x - width, [m['precision'] for m in metrics_list], width, label='Precision', color=[c for c in colours], alpha=0.75)
+    bar_rec  = axes[0].bar(x,          [m['recall']    for m in metrics_list], width, label='Recall',    color=[c for c in colours], alpha=0.92)
+    bar_f1   = axes[0].bar(x + width,  [m['f1']        for m in metrics_list], width, label='F1',        color=[c for c in colours], alpha=1.0)
+
+    # value labels on every bar
+    for bars in (bar_prec, bar_rec, bar_f1):
+        for bar in bars:
+            v = bar.get_height()
+            axes[0].text(
+                bar.get_x() + bar.get_width() / 2,
+                v + 0.002,
+                f'{v:.4f}',
+                ha='center', va='bottom', fontsize=6.5, rotation=90
+            )
+
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels(labels)
+    axes[0].set_ylim(0.85, 1.07)
+    axes[0].set_ylabel('Score')
+    axes[0].set_title(f'Precision / Recall / F1  (tolerance = {tol} samples)')
     axes[0].legend()
-    # MATE
-    axes[1].bar(labels, [m['mate'] for m in metrics_list], color=['steelblue','orange','green'])
-    axes[1].set_title('MATE (samples)')
+
+    # --- MATE panel ---
+    mate_vals = [m['mate'] for m in metrics_list]
+    bars_mate = axes[1].bar(labels, mate_vals, color=colours)
+    for bar, v in zip(bars_mate, mate_vals):
+        axes[1].text(
+            bar.get_x() + bar.get_width() / 2,
+            v + 0.01,
+            f'{v:.3f}',
+            ha='center', va='bottom', fontsize=9, fontweight='bold'
+        )
+    axes[1].set_ylabel('Samples')
+    axes[1].set_title('Mean Absolute Timing Error (MATE)')
+    axes[1].set_ylim(0, max(mate_vals) * 1.35)
+
     plt.tight_layout()
-    fig.savefig('outputs/comparison_bar.png')
+    fig.savefig('outputs/comparison_bar.png', dpi=150)
+    plt.close(fig)
 
 save_bar_chart(base_metrics, cnn_metrics, tcn_metrics, TOL)
 
@@ -92,11 +122,23 @@ for tol in tolerances:
     results['CNN'].append(evaluate_model(cnn_model, test_loader, DEVICE, tolerance=tol)['f1'])
     results['TCN'].append(evaluate_model(tcn_model, test_loader, DEVICE, tolerance=tol)['f1'])
 
-plt.figure(figsize=(8,4))
+line_styles = {
+    'Baseline': dict(color='steelblue',  linestyle='--', marker='s', linewidth=2),
+    'CNN':      dict(color='darkorange', linestyle='-',  marker='o', linewidth=2),
+    'TCN':      dict(color='seagreen',   linestyle='-',  marker='^', linewidth=2),
+}
+fig_tol, ax_tol = plt.subplots(figsize=(8, 4))
 for name, f1s in results.items():
-    plt.plot(tolerances, f1s, marker='o', label=name)
-plt.xlabel('Tolerance'); plt.ylabel('F1'); plt.title('F1 vs tolerance'); plt.legend(); plt.grid(True)
-plt.tight_layout(); plt.savefig('outputs/f1_vs_tolerance.png')
+    ax_tol.plot(tolerances, f1s, label=name, **line_styles[name])
+ax_tol.set_xlabel('Tolerance (samples)')
+ax_tol.set_ylabel('F1 Score')
+ax_tol.set_title('F1 Score vs Matching Tolerance')
+ax_tol.set_ylim(0.70, 1.02)
+ax_tol.legend()
+ax_tol.grid(True, linestyle=':', alpha=0.6)
+fig_tol.tight_layout()
+fig_tol.savefig('outputs/f1_vs_tolerance.png', dpi=150)
+plt.close(fig_tol)
 
 # Training curves overlay
 
