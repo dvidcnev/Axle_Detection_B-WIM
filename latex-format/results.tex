@@ -1,0 +1,149 @@
+\chapter{RESULTS AND DISCUSSION}
+
+\section{SANITY CHECK: OVERFITTING ON 10 SAMPLES}
+
+Before full training, a sanity check verified that each neural network model
+could memorise a tiny batch of 10 training examples. With a plain (unweighted)
+BCE loss and a learning rate of $5 \times 10^{-3}$, both the CNN and TCN reduced
+their training loss below $10^{-2}$ within 200 epochs. This confirms that the
+forward and backward passes are implemented correctly and that the architecture
+has sufficient capacity for the task.
+
+\section{TRAINING CONVERGENCE}
+
+\subsection{CNN}
+
+The CNN was trained for 5 epochs before early stopping halted training. The best
+checkpoint was saved at \textbf{epoch 3} with validation F1\,=\,0.9974 and
+validation MATE\,=\,0.246 samples. The rapid convergence is consistent with the
+relatively large model capacity (30\,M parameters) and the high information
+density of the weighted loss.
+
+% TODO: Insert training curve figure here.
+% \begin{figure}[ht]
+%     \centering
+%     \includegraphics[width=\linewidth]{images/cnn_training_curves.pdf}
+%     \caption{CNN training and validation loss (left) and validation F1-score
+%              (right) over epochs. The red dashed line marks the best epoch.}
+%     \label{fig:cnn_curves}
+% \end{figure}
+
+\subsection{TCN}
+
+The TCN was trained for 33 epochs. The best checkpoint was saved at
+\textbf{epoch 23} with validation F1\,=\,0.9982 and validation
+MATE\,=\,0.237 samples. The learning rate was reduced automatically twice during
+training (ReduceLROnPlateau), which produced the characteristic step-wise
+improvement visible in the validation curve.
+
+% TODO: Insert training curve figure here.
+% \begin{figure}[ht]
+%     \centering
+%     \includegraphics[width=\linewidth]{images/tcn_training_curves.pdf}
+%     \caption{TCN training and validation loss (left) and validation F1-score
+%              (right) over epochs. The red dashed line marks the best epoch.}
+%     \label{fig:tcn_curves}
+% \end{figure}
+
+\section{QUANTITATIVE COMPARISON}
+
+Table~\ref{tab:results} summarises the performance of all three methods on the
+validation set using the best saved checkpoint for each neural network model.
+
+\begin{table}[ht]
+    \centering
+    \caption{Axle-level detection performance on the validation set.
+             MATE is the Mean Absolute Timing Error in samples.
+             $\pm$5 sample tolerance window, greedy matching.}
+    \label{tab:results}
+    \begin{tabular}{lccccr}
+        \toprule
+        \textbf{Method} & \textbf{Precision} & \textbf{Recall}
+                        & \textbf{F1} & \textbf{MATE} & \textbf{Params} \\
+        \midrule
+        Baseline (SG + peaks) & -- & -- & -- & -- & 0 \\
+        % TODO: Fill in baseline numbers after running notebook 02.
+        CNN (U-Net, epoch 3)  & 0.9954 & 0.9995 & 0.9974 & 0.246 & $\sim$30\,M \\
+        TCN (epoch 23)        & \textbf{0.9965} & \textbf{0.9999}
+                              & \textbf{0.9982} & \textbf{0.237} & $\sim$2.7\,M \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Both deep learning models achieve near-perfect axle detection. The TCN
+outperforms the CNN on all four metrics while using 11 times fewer parameters.
+The MATE of 0.24 samples corresponds to approximately 2.4\,ms at a typical
+B-WIM sampling rate of 100\,Hz, which is operationally negligible for weight
+calculation purposes.
+
+\section{VISUAL INSPECTION}
+
+Figure~\ref{fig:visual} shows the TCN's predictions on six randomly selected
+test-set records. In each panel, the raw strain signal (blue) is overlaid with
+the scaled TCN output probability (orange). Ground-truth axle positions are
+marked by green vertical lines and predicted positions by red dashed lines.
+
+Across all six examples the TCN correctly identifies the axle count and places
+predictions within 1--2 samples of the ground truth. No false positives are
+observed in these examples, and the probability output forms a sharp, narrow peak
+above each axle event, confirming that the model has learned a precise temporal
+localisation rather than a diffuse detection.
+
+% TODO: Insert visual inspection figure here (generated from notebook 04, cell 14).
+% \begin{figure}[ht]
+%     \centering
+%     \includegraphics[width=\linewidth]{images/tcn_visual_inspection.pdf}
+%     \caption{TCN predictions on six test-set records. Blue = strain signal;
+%              orange = TCN output probability (scaled to signal amplitude range);
+%              green lines = ground-truth axle positions;
+%              red dashed lines = predicted axle positions.}
+%     \label{fig:visual}
+% \end{figure}
+
+\section{DISCUSSION}
+
+\subsection{Architecture vs.\ Model Size}
+
+The most striking finding is that the TCN, with 2.7\,M parameters, consistently
+outperforms the CNN, which has 30\,M parameters. This supports the hypothesis
+that the key design choice for this task is receptive field coverage rather than
+raw model capacity. The TCN's dilated blocks ensure that every output position
+can attend to the full 1,300-sample signal, while the CNN's skip connections
+compensate for the loss of temporal resolution in the encoder but cannot replicate
+this global context.
+
+\subsection{Convergence Speed}
+
+The CNN converged in only 3 effective epochs, whereas the TCN required 23. This
+likely reflects the CNN's larger parameter count providing more initial
+flexibility, but also a tendency to overfit sooner. The slower, more regular
+convergence of the TCN --- with two visible learning rate reduction steps ---
+suggests better regularisation and a smoother optimisation landscape.
+
+\subsection{Practical Implications}
+
+A MATE of 0.24 samples translates to sub-millisecond timing accuracy at 100\,Hz,
+well within the tolerance required for accurate weight calculation. Both models
+achieve near-perfect recall ($\geq 0.9995$), meaning very few axles are missed.
+Precision is slightly lower ($\sim 0.9954$--$0.9965$), indicating occasional
+false positives, but these remain rare (fewer than 1 in 200 detected axles).
+
+\subsection{Limitations}
+
+\begin{itemize}
+    \item \textbf{Record-level data split}: The train/validation/test split is
+          performed by vehicle record, not by day or week. Crossings from the same
+          day may share environmental conditions (temperature, noise floor),
+          potentially inflating generalisation estimates. A chronological
+          (day-level) split would provide a stricter evaluation.
+    \item \textbf{Single installation}: All data originates from one bridge and
+          sensor configuration. Performance on a different bridge or sensor type
+          is unknown.
+    \item \textbf{Raised axles}: Vehicles with a raised (lifted) axle produce a
+          zero or near-zero signal for that axle. Neither model was explicitly
+          tested on such cases.
+    \item \textbf{Robustness to noise and speed variation}: A systematic
+          robustness experiment (e.g., adding synthetic Gaussian noise or
+          time-stretching signals to simulate speed variation) was outside the
+          scope of this work.
+\end{itemize}

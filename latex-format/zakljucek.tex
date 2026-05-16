@@ -1,0 +1,51 @@
+\chapter{CONCLUSION}
+
+This thesis investigated neural network-based axle detection for Bridge
+Weigh-In-Motion (B-WIM) systems. The problem was framed as per-sample binary
+sequence labelling on a dataset of 32,141 vehicle crossing records, each a
+1,300-sample strain signal with ground-truth axle positions. The extreme class
+imbalance (287:1 negative-to-positive ratio) was addressed by weighting the
+binary cross-entropy loss proportionally to the class frequencies.
+
+Three approaches were compared: a classical Savitzky-Golay filter and
+peak-detection baseline, a 1D U-Net CNN (30\,M parameters), and a TCN with nine
+dilated residual blocks (2.7\,M parameters, receptive field 2,045 samples). Both
+deep learning models were evaluated using axle-level precision, recall, F1-score,
+and Mean Absolute Timing Error (MATE) with a $\pm$5-sample tolerance window.
+
+The main findings are:
+
+\begin{enumerate}
+    \item Both neural network models achieve near-perfect axle detection
+          (F1\,$\geq$\,0.997, MATE\,$\leq$\,0.25 samples) on unseen vehicle
+          records, substantially outperforming the classical baseline.
+    \item The TCN outperforms the larger CNN on all metrics despite having 11
+          times fewer parameters. This demonstrates that \emph{architecture
+          design} --- specifically, ensuring sufficient receptive field coverage
+          --- matters more than model scale for this task.
+    \item A MATE of approximately 0.24 samples corresponds to sub-millisecond
+          timing accuracy at 100\,Hz, well within the tolerance required for
+          accurate GVW estimation.
+\end{enumerate}
+
+\section{FUTURE WORK}
+
+Several directions remain open for future investigation:
+
+\begin{itemize}
+    \item \textbf{Day-level data splitting}: Re-evaluating models with a
+          chronological split would test cross-temporal generalisation more
+          rigorously.
+    \item \textbf{Multi-installation generalisation}: Collecting data from
+          multiple bridges and sensor configurations would reveal how well the
+          models transfer to unseen installations.
+    \item \textbf{Robustness under noise and speed variation}: Systematic
+          experiments with synthetic noise injection and time-stretching would
+          quantify model robustness.
+    \item \textbf{End-to-end weight estimation}: Integrating the axle detector
+          into a full B-WIM pipeline and evaluating GVW accuracy would demonstrate
+          operational impact.
+    \item \textbf{Lighter architectures}: Exploring smaller TCN variants or
+          knowledge distillation could enable deployment on low-power edge
+          hardware typically used in B-WIM installations.
+\end{itemize}

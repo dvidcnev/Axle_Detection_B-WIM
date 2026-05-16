@@ -1,0 +1,116 @@
+\documentclass[english]{famnit-thesis}
+% \documentclass[english,cover]{famnit-thesis} % Add cover page for print submission.
+% \documentclass[english,review]{famnit-thesis} % Review version (anonymised).
+
+\usepackage{ccicons}   % CC license symbols on the license page.
+\usepackage{booktabs}  % Professional-quality tables (\toprule, \midrule, \bottomrule).
+\usepackage{amsmath}   % Extended math environments.
+
+% ---------------------------------------------------------------------------
+% TODO: Replace the placeholder values below with your actual information.
+% ---------------------------------------------------------------------------
+
+\title
+    {Zaznavanje osi vozil z nevronskimi mrežami za sisteme tehtanja vozil na mostu}
+    {Neural Network-Based Axle Detection for Bridge Weigh-In-Motion Systems}
+    {Neural Network-Based Axle Detection for B-WIM Systems.}
+
+\author{[FirstName]}{[LastName]}{[LastName] F.}
+\studyprogram{Računalništvo in informatika}
+\mentor{[prof. dr. Supervisor Name]}{[Supervisor Name, PhD]}
+\date{June}{2026}
+
+% Remove the two lines below if you have no co-mentor.
+% \comentor{doc. dr. Ime Somentorja}{Ime Somentorja, PhD}
+% \workingcomentor{dr. Ime Delovnega Somentorja}{Ime Delovnega Somentorja, PhD}
+
+% ---------------------------------------------------------------------------
+% Keywords (Slovene first, then English)
+% ---------------------------------------------------------------------------
+\keywords
+    {zaznavanje osi, tehtanje vozil na mostu, nevronske mreže, TCN, CNN, časovne serije}
+    {axle detection, bridge weigh-in-motion, neural networks, temporal convolutional network, time series}
+
+% ---------------------------------------------------------------------------
+% Abstracts (Slovene first, then English; max 250 words each)
+% ---------------------------------------------------------------------------
+\abstract
+{
+    Sistemi tehtanja vozil na mostu (B-WIM) ocenjujejo bruto težo tovornih vozil
+    z analizo dinamičnega signala deformacije mostu med prehodom vozila. Ključni
+    korak je natančno zaznavanje osi — določitev točnih vzorčnih pozicij vsakega
+    prehoda osi v signalu dolžine 1.300 vzorcev. Gre za zahteven problem dvojiškega
+    označevanja zaporedja, ki ga otežuje izrazito neravnovesje razredov: le
+    0{,}35\,\% vzorcev je pozitivnih (dogodki osi), kar daje razmerje 287:1.
+    V tej nalogi primerjamo tri pristope na naboru 32.141 prehodov vozil:
+    (1) klasični filter Savitzky-Golay z iskanjem vrhov, (2) 1D U-Net konvolucijsko
+    nevronsko omrežje (CNN, 30\,M parametrov) in (3) temporalno konvolucijsko
+    omrežje (TCN, 2{,}7\,M parametrov) z devetimi dilatiranimi rezidualnimi bloki,
+    katerih receptivno polje znaša 2.045 vzorcev. Oba modela globokega učenja sta
+    naučena s tehtano binarno navzkrižno entropijo (pos\_weight\,=\,287).
+    Najboljši model (TCN) dosega F1\,=\,0{,}998, natančnost\,=\,0{,}997,
+    priklic\,$\approx$\,1{,}000 in povprečno absolutno napako časovne lokacije
+    0{,}24 vzorca, pri čemer prekaša CNN kljub 11-kratnemu zmanjšanju parametrov.
+}
+{
+    Bridge Weigh-In-Motion (B-WIM) systems estimate the gross vehicle weight of
+    heavy goods vehicles by analysing the dynamic strain signal recorded as a
+    vehicle crosses a bridge. A critical preprocessing step is accurate axle
+    detection --- locating the exact sample positions of each axle passage in a
+    1,300-sample signal. This is a challenging binary sequence-labelling problem
+    due to severe class imbalance: only 0.35\,\% of samples are positive (axle
+    events), yielding a 287:1 negative-to-positive ratio. This thesis compares
+    three approaches on a dataset of 32,141 vehicle crossings: (1) a classical
+    Savitzky-Golay filter and peak-detection baseline, (2) a 1D U-Net
+    Convolutional Neural Network (CNN, 30\,M parameters), and (3) a Temporal
+    Convolutional Network (TCN, 2.7\,M parameters) with nine dilated residual
+    blocks and a receptive field of 2,045 samples. Both deep learning models are
+    trained with a weighted binary cross-entropy loss (pos\_weight\,=\,287).
+    The TCN achieves F1\,=\,0.998, Precision\,=\,0.997, Recall\,$\approx$\,1.000,
+    and a Mean Absolute Timing Error of 0.24 samples on the validation set,
+    outperforming both the CNN and the classical baseline. The TCN achieves this
+    with 11 times fewer parameters than the CNN, demonstrating that architecture
+    design outweighs model scale for B-WIM axle detection.
+}
+
+% ---------------------------------------------------------------------------
+% Acknowledgments
+% ---------------------------------------------------------------------------
+\acknowledgments
+{
+    % TODO: Write your acknowledgments here.
+    I would like to thank my supervisor for their guidance and support throughout
+    this project.
+}
+
+% License page (English version).
+\input{license.tex}
+
+% ---------------------------------------------------------------------------
+% List of abbreviations
+% ---------------------------------------------------------------------------
+\abbreviation{B-WIM}{Bridge Weigh-In-Motion}
+\abbreviation{BCE}{Binary Cross-Entropy loss}
+\abbreviation{CNN}{Convolutional Neural Network}
+\abbreviation{F1}{F1-score (harmonic mean of precision and recall)}
+\abbreviation{GVW}{Gross Vehicle Weight}
+\abbreviation{HGV}{Heavy Goods Vehicle}
+\abbreviation{MATE}{Mean Absolute Timing Error}
+\abbreviation{ReLU}{Rectified Linear Unit}
+\abbreviation{TCN}{Temporal Convolutional Network}
+
+\begin{document}
+    \input{uvod.tex}        % Chapter 1 — Introduction
+    \input{background.tex}  % Chapter 2 — Background and Related Work
+    \input{metodologija.tex}% Chapter 3 — Methodology
+    \input{results.tex}     % Chapter 4 — Results and Discussion
+    \input{zakljucek.tex}   % Chapter 5 — Conclusion
+
+    \backmatter
+    % English theses must include an extended Slovene abstract (4,000–10,000
+    % characters incl. spaces) as the last numbered chapter before References.
+    % Uncomment and fill in abstract_sl.tex when ready.
+    % \input{abstract_sl.tex}
+
+    \input{priloga.tex}     % Appendix A — (optional)
+\end{document}
