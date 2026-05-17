@@ -22,7 +22,7 @@ import csv
 import os
 import sys
 import time
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -33,7 +33,7 @@ from tqdm import tqdm
 # Make sure src/ is on the path when running as __main__
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.dataset  import build_datasets
+from src.dataset  import build_datasets, build_cv_folds
 from src.evaluate import evaluate_model, print_metrics
 from src.models   import AxleUNet, AxleTCN
 
@@ -129,11 +129,13 @@ def train(
     epochs:      int   = 50,
     batch_size:  int   = 64,
     lr:          float = 1e-3,
-    patience:    int   = 10,
+    patience:    int   = 15,
     num_workers: int   = 0,
     seed:        int   = 42,
     checkpoint_dir: str = "checkpoints",
     resume:      bool  = False,
+    datasets:    Optional[Tuple] = None,
+    fold_id:     Optional[int]   = None,
 ):
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -143,7 +145,10 @@ def train(
     print(f"Model  : {model_name.upper()}")
 
     # --- Data ---
-    train_ds, val_ds, test_ds = build_datasets(json_path)
+    if datasets is not None:
+        train_ds, val_ds, test_ds = datasets
+    else:
+        train_ds, val_ds, test_ds = build_datasets(json_path)
 
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
                               num_workers=num_workers, pin_memory=(device.type == "cuda"))
@@ -177,8 +182,9 @@ def train(
 
     # --- Logging ---
     os.makedirs(checkpoint_dir, exist_ok=True)
-    log_path  = os.path.join(checkpoint_dir, f"{model_name}_log.csv")
-    ckpt_path = os.path.join(checkpoint_dir, f"{model_name}_best.pt")
+    suffix    = f"_fold{fold_id}" if fold_id is not None else ""
+    log_path  = os.path.join(checkpoint_dir, f"{model_name}{suffix}_log.csv")
+    ckpt_path = os.path.join(checkpoint_dir, f"{model_name}{suffix}_best.pt")
 
     # --- Resume from checkpoint ---
     best_val_f1 = -1.0
@@ -287,7 +293,73 @@ def train(
     print(f"Test results (thresh={best_thresh:.2f}):")
     print_metrics(test_metrics, prefix="test")
     print(f"Log saved to: {log_path}")
-    return test_metrics
+    return {"val": val_best_metrics, "test": test_metrics}
+
+
+# ---------------------------------------------------------------------------
+# K-fold cross-validation training
+# ---------------------------------------------------------------------------
+
+def train_cv(
+    model_name:     str   = "cnn",
+    json_path:      str   = "axle_data.json/axle_data.json",
+    n_folds:        int   = 5,
+    epochs:         int   = 50,
+    batch_size:     int   = 64,
+    lr:             float = 1e-3,
+    patience:       int   = 10,
+    num_workers:    int   = 0,
+    seed:           int   = 42,
+    checkpoint_dir: str   = "checkpoints",
+) -> List[dict]:
+    """Train one model per fold; report mean ± std of val and test metrics."""
+    folds, test_ds = build_cv_folds(json_path, n_splits=n_folds, seed=seed)
+
+    fold_results = []
+    best_val_f1  = -1.0
+    best_fold_id = 1
+
+    for k, (train_ds, val_ds) in enumerate(folds, start=1):
+        print(f"\n{'='*60}")
+        print(f"  FOLD {k} / {n_folds}")
+        print(f"{'='*60}")
+        result = train(
+            model_name     = model_name,
+            json_path      = json_path,
+            epochs         = epochs,
+            batch_size     = batch_size,
+            lr             = lr,
+            patience       = patience,
+            num_workers    = num_workers,
+            seed           = seed,
+            checkpoint_dir = checkpoint_dir,
+            resume         = False,
+            datasets       = (train_ds, val_ds, test_ds),
+            fold_id        = k,
+        )
+        fold_results.append(result)
+        if result["val"]["f1"] > best_val_f1:
+            best_val_f1  = result["val"]["f1"]
+            best_fold_id = k
+
+    # Aggregate and report
+    print(f"\n{'='*60}")
+    print(f"  CROSS-VALIDATION SUMMARY  ({n_folds} folds)")
+    print(f"{'='*60}")
+    for split, label in [("val", "Val"), ("test", "Test")]:
+        print(f"  {label}:")
+        for metric in ["f1", "precision", "recall", "mate"]:
+            vals = [r[split][metric] for r in fold_results]
+            print(f"    {metric:12s}: {np.mean(vals):.4f} ± {np.std(vals):.4f}")
+
+    # Copy best fold's checkpoint → <model>_best.pt for downstream use
+    import shutil
+    best_src  = os.path.join(checkpoint_dir, f"{model_name}_fold{best_fold_id}_best.pt")
+    best_dest = os.path.join(checkpoint_dir, f"{model_name}_best.pt")
+    shutil.copy(best_src, best_dest)
+    print(f"\n  Best fold: {best_fold_id} (Val F1={best_val_f1:.4f}) → {best_dest}")
+
+    return fold_results
 
 
 # ---------------------------------------------------------------------------
@@ -307,16 +379,31 @@ if __name__ == "__main__":
     parser.add_argument("--seed",        type=int,   default=42)
     parser.add_argument("--resume",      action="store_true",
                         help="Continue training from the best saved checkpoint.")
+    parser.add_argument("--folds",       type=int,   default=1,
+                        help="K-fold cross-validation folds (default 1 = single train/val/test split).")
     args = parser.parse_args()
 
-    train(
-        model_name   = args.model,
-        json_path    = args.json_path,
-        epochs       = args.epochs,
-        batch_size   = args.batch_size,
-        lr           = args.lr,
-        patience     = args.patience,
-        num_workers  = args.num_workers,
-        seed         = args.seed,
-        resume       = args.resume,
-    )
+    if args.folds > 1:
+        train_cv(
+            model_name     = args.model,
+            json_path      = args.json_path,
+            n_folds        = args.folds,
+            epochs         = args.epochs,
+            batch_size     = args.batch_size,
+            lr             = args.lr,
+            patience       = args.patience,
+            num_workers    = args.num_workers,
+            seed           = args.seed,
+        )
+    else:
+        train(
+            model_name   = args.model,
+            json_path    = args.json_path,
+            epochs       = args.epochs,
+            batch_size   = args.batch_size,
+            lr           = args.lr,
+            patience     = args.patience,
+            num_workers  = args.num_workers,
+            seed         = args.seed,
+            resume       = args.resume,
+        )

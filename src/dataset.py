@@ -212,6 +212,70 @@ def build_datasets(
 
 
 # ---------------------------------------------------------------------------
+# K-fold cross-validation split
+# ---------------------------------------------------------------------------
+
+def build_cv_folds(
+    json_path:  str,
+    n_splits:   int   = 5,
+    test_ratio: float = 0.10,
+    signal_key: str   = "signal",
+    pulse_key:  str   = "pulses",
+    signal_len: int   = 1300,
+    seed:       int   = 42,
+) -> Tuple[List[Tuple["AxleDataset", "AxleDataset"]], "AxleDataset"]:
+    """Build K train/val fold pairs plus a fixed held-out test set.
+
+    The test set (``test_ratio`` of all records) is carved out first and
+    never seen during any fold's training or validation.  Normalisation
+    stats are refit independently on each fold's training records so there
+    is no data leakage between folds.
+
+    Returns
+    -------
+    folds : list of (train_ds, val_ds) — length n_splits
+    test_ds : AxleDataset — held-out test set, identical across all folds
+    """
+    from sklearn.model_selection import KFold
+
+    records = load_json_records(json_path)
+    n = len(records)
+    print(f"Loaded {n:,} records from {os.path.basename(json_path)}")
+
+    indices = list(range(n))
+    trainval_idx, test_idx = train_test_split(
+        indices, test_size=test_ratio, random_state=seed, shuffle=True
+    )
+    trainval_records = [records[i] for i in trainval_idx]
+    test_records     = [records[i] for i in test_idx]
+
+    print(f"  Train+Val: {len(trainval_records):,}  |  Test (fixed): {len(test_records):,}")
+    print(f"  K-fold CV : {n_splits} folds")
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    folds: List[Tuple[AxleDataset, AxleDataset]] = []
+
+    for fold_i, (tr_idx, va_idx) in enumerate(kf.split(trainval_records), start=1):
+        train_recs = [trainval_records[i] for i in tr_idx]
+        val_recs   = [trainval_records[i] for i in va_idx]
+        mean, std  = AxleDataset.compute_stats(train_recs, signal_key)
+        kwargs = dict(signal_key=signal_key, pulse_key=pulse_key,
+                      signal_len=signal_len, mean=mean, std=std)
+        folds.append((AxleDataset(train_recs, **kwargs), AxleDataset(val_recs, **kwargs)))
+        print(f"  Fold {fold_i}: train={len(train_recs):,}  val={len(val_recs):,}")
+
+    # Test set uses normalisation stats from the full train+val pool to avoid
+    # picking one fold's stats arbitrarily.
+    mean_tv, std_tv = AxleDataset.compute_stats(trainval_records, signal_key)
+    test_ds = AxleDataset(
+        test_records,
+        signal_key=signal_key, pulse_key=pulse_key,
+        signal_len=signal_len, mean=mean_tv, std=std_tv,
+    )
+    return folds, test_ds
+
+
+# ---------------------------------------------------------------------------
 # Quick sanity check
 # ---------------------------------------------------------------------------
 
