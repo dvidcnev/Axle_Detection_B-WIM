@@ -67,7 +67,7 @@ class TCNBlock(nn.Module):
         )
         self.bn2   = nn.BatchNorm1d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
-        self.drop2 = nn.Dropout(dropout)
+        self.drop2 = nn.Dropout(dropout)  # prevent overfitting
 
         # 1×1 projection for skip connection if channels differ
         self.downsample = (

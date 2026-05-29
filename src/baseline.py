@@ -46,8 +46,8 @@ def tune_threshold(
     signals: List[np.ndarray],
     targets: List[np.ndarray],
     tolerance: int = 5,
-    height_factors: Tuple = (0.05, 0.10, 0.15, 0.20, 0.25, 0.30),
-    distances: Tuple = (10, 15, 20, 30),
+    height_factors: Tuple = (0.03, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0,.35, 0.40, 0.45, 0.50),
+    distances: Tuple = (10, 15, 20, 30, 40, 50),
 ) -> dict:
     """Grid-search height_factor and distance on a validation set; return best params."""
     from .evaluate import axle_level_metrics

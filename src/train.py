@@ -129,7 +129,7 @@ def train(
     epochs:      int   = 50,
     batch_size:  int   = 64,
     lr:          float = 1e-3,
-    patience:    int   = 15,
+    patience:    int   = 10,
     num_workers: int   = 0,
     seed:        int   = 42,
     checkpoint_dir: str = "checkpoints",

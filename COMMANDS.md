@@ -56,6 +56,20 @@ Start-Process powershell -ArgumentList '-NoExit', '-Command', `
   'cd D:\Thesis; $env:PYTHONPATH="D:\Thesis"; python scripts\run_training.py --model tcn --epochs 100 --patience 25'
 ```
 
+### Cross-validation (K-fold)
+
+```powershell
+# 5-fold CV for TCN (recommended)
+$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe -m src.train --model tcn --epochs 50 --folds 5
+
+# 5-fold CV for CNN
+$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe -m src.train --model cnn --epochs 50 --folds 5
+```
+
+Each fold trains independently. When all folds finish, the script prints mean ± std across folds and copies the best fold's checkpoint to `checkpoints/<model>_best.pt`.
+
+---
+
 ### All training flags
 
 | Flag | Default | Meaning |
