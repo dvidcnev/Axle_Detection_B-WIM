@@ -1,9 +1,15 @@
 # Axle Detection — Command Reference
 
-All commands are run from `D:\Thesis`. Open a terminal there first:
+All commands are run from the repo root. Open a terminal there first:
+```powershell
+cd D:\Thesis   # adjust to wherever you cloned the repo
 ```
-cd D:\Thesis
+
+Then activate the virtual environment so you can use `python` directly:
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
+> If you skip activation, replace every `python` below with `.venv\Scripts\python.exe`.
 
 ---
 
@@ -52,18 +58,19 @@ python scripts\run_training.py --model cnn --resume --epochs 50 --patience 20
 ### Run in a separate window (survives terminal close)
 
 ```powershell
+$root = (Get-Location).Path
 Start-Process powershell -ArgumentList '-NoExit', '-Command', `
-  'cd D:\Thesis; $env:PYTHONPATH="D:\Thesis"; python scripts\run_training.py --model tcn --epochs 100 --patience 25'
+  "cd '$root'; .\.venv\Scripts\Activate.ps1; python scripts\run_training.py --model tcn --epochs 100 --patience 25"
 ```
 
 ### Cross-validation (K-fold)
 
 ```powershell
 # 5-fold CV for TCN (recommended)
-$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe -m src.train --model tcn --epochs 50 --folds 5
+python -m src.train --model tcn --epochs 50 --folds 5
 
 # 5-fold CV for CNN
-$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe -m src.train --model cnn --epochs 50 --folds 5
+python -m src.train --model cnn --epochs 50 --folds 5
 ```
 
 Each fold trains independently. When all folds finish, the script prints mean ± std across folds and copies the best fold's checkpoint to `checkpoints/<model>_best.pt`.
@@ -86,18 +93,20 @@ Each fold trains independently. When all folds finish, the script prints mean ±
 
 ## Monitoring (open in a second terminal while training runs)
 
+Remember to activate the venv in that terminal too (`.\.venv\Scripts\Activate.ps1`).
+
 ```powershell
 # Watch both models
-.venv\Scripts\python.exe scripts\watch_training.py
+python scripts\watch_training.py
 
 # Watch one model
-.venv\Scripts\python.exe scripts\watch_training.py --model tcn
+python scripts\watch_training.py --model tcn
 
 # Match your epoch count so the progress bar is correct
-.venv\Scripts\python.exe scripts\watch_training.py --model tcn --epochs 100
+python scripts\watch_training.py --model tcn --epochs 100
 
 # Change refresh rate (default 10 seconds)
-.venv\Scripts\python.exe scripts\watch_training.py --interval 5
+python scripts\watch_training.py --interval 5
 ```
 
 ---
@@ -107,13 +116,14 @@ Each fold trains independently. When all folds finish, the script prints mean ±
 ```powershell
 # Run full test-set evaluation: Baseline vs CNN vs TCN
 # Outputs results to console + saves plots to outputs/
-$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe scripts\compare.py
+python scripts\compare.py
 ```
 
 Output files saved to `outputs/`:
 - `comparison_bar.png` — Precision / Recall / F1 / MATE bar chart
 - `f1_vs_tolerance.png` — F1 score across different timing tolerances
 - `training_curves.png` — Loss and F1 over epochs
+- `eval_output.txt` — Console summary written to file (same numbers printed to the terminal)
 
 ---
 
@@ -121,18 +131,18 @@ Output files saved to `outputs/`:
 
 ```powershell
 # See what's saved
-Get-ChildItem D:\Thesis\checkpoints\
+Get-ChildItem .\checkpoints\
 
 # Check best epoch and F1 stored in a checkpoint
-cmd /c "cd /d D:\Thesis && .venv\Scripts\python.exe -c ""import torch; c=torch.load('checkpoints/tcn_best.pt',map_location='cpu',weights_only=False); print('epoch:', c['epoch'], '| val F1:', round(c['val_f1'],4))"""
-cmd /c "cd /d D:\Thesis && .venv\Scripts\python.exe -c ""import torch; c=torch.load('checkpoints/cnn_best.pt',map_location='cpu',weights_only=False); print('epoch:', c['epoch'], '| val F1:', round(c['val_f1'],4))"""
+python -c "import torch; c=torch.load('checkpoints/tcn_best.pt',map_location='cpu',weights_only=False); print('epoch:', c['epoch'], '| val F1:', round(c['val_f1'],4))"
+python -c "import torch; c=torch.load('checkpoints/cnn_best.pt',map_location='cpu',weights_only=False); print('epoch:', c['epoch'], '| val F1:', round(c['val_f1'],4))"
 
 # Read the training log CSV directly
-Get-Content D:\Thesis\checkpoints\tcn_log.csv
-Get-Content D:\Thesis\checkpoints\cnn_log.csv
+Get-Content .\checkpoints\tcn_log.csv
+Get-Content .\checkpoints\cnn_log.csv
 
 # Just the last 5 epochs
-Get-Content D:\Thesis\checkpoints\tcn_log.csv | Select-Object -Last 5
+Get-Content .\checkpoints\tcn_log.csv | Select-Object -Last 5
 ```
 
 ---
@@ -140,17 +150,17 @@ Get-Content D:\Thesis\checkpoints\tcn_log.csv | Select-Object -Last 5
 ## Typical workflow start-to-finish
 
 ```powershell
-# 1. Start training in one terminal
-.venv\Scripts\python.exe scripts\run_training.py --model tcn --epochs 100 --patience 25
+# 1. Start training in one terminal (venv activated)
+python scripts\run_training.py --model tcn --epochs 100 --patience 25
 
-# 2. Open a second terminal and watch it live
-.venv\Scripts\python.exe scripts\watch_training.py --model tcn --epochs 100
+# 2. Open a second terminal, activate venv, then watch it live
+python scripts\watch_training.py --model tcn --epochs 100
 
 # 3. After training finishes, run evaluation
-$env:PYTHONPATH = "D:\Thesis"; .venv\Scripts\python.exe scripts\compare.py
+python scripts\compare.py
 
-# 4. Check results
-Get-Content D:\Thesis\outputs\eval_output.txt
+# 4. Check results (printed to console by compare.py, also saved here)
+Get-Content .\outputs\eval_output.txt
 ```
 
 ---
@@ -159,8 +169,8 @@ Get-Content D:\Thesis\outputs\eval_output.txt
 
 ```powershell
 # Check GPU is available
-cmd /c "cd /d D:\Thesis && .venv\Scripts\python.exe -c ""import torch; print('CUDA:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"""
+python -c "import torch; print('CUDA:', torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 
 # Check all packages are installed
-.venv\Scripts\pip.exe list | Select-String "torch|numpy|scipy|scikit|tqdm|matplotlib|pandas"
+pip list | Select-String "torch|numpy|scipy|scikit|tqdm|matplotlib|pandas"
 ```
