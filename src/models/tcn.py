@@ -30,7 +30,7 @@ import torch.nn.functional as F
 
 class TCNBlock(nn.Module):
     """
-    Two-layer dilated Conv1d residual block with weight norm and dropout.
+    Two-layer dilated Conv1d residual block with BatchNorm and dropout.
 
     Parameters
     ----------
@@ -53,18 +53,14 @@ class TCNBlock(nn.Module):
         assert kernel_size % 2 == 1, "kernel_size must be odd for symmetric padding"
         pad = dilation * (kernel_size - 1) // 2  # keeps sequence length constant
 
-        self.conv1 = nn.utils.parametrizations.weight_norm(
-            nn.Conv1d(in_channels, out_channels, kernel_size,
-                      dilation=dilation, padding=pad)
-        )
+        self.conv1 = nn.Conv1d(in_channels, out_channels, kernel_size,
+                               dilation=dilation, padding=pad)
         self.bn1    = nn.BatchNorm1d(out_channels)
         self.relu1  = nn.ReLU(inplace=True)
         self.drop1  = nn.Dropout(dropout)
 
-        self.conv2 = nn.utils.parametrizations.weight_norm(
-            nn.Conv1d(out_channels, out_channels, kernel_size,
-                      dilation=dilation, padding=pad)
-        )
+        self.conv2 = nn.Conv1d(out_channels, out_channels, kernel_size,
+                               dilation=dilation, padding=pad)
         self.bn2   = nn.BatchNorm1d(out_channels)
         self.relu2 = nn.ReLU(inplace=True)
         self.drop2 = nn.Dropout(dropout)  # prevent overfitting
@@ -101,8 +97,8 @@ class AxleTCN(nn.Module):
     num_blocks : int        Number of residual blocks. Dilations: 1,2,4,...,2^(n-1).
     dropout : float         Dropout in each block.
 
-    With kernel_size=3 and num_blocks=10:
-      Receptive field = 1 + 2*(3-1)*(2^10 - 1) = 4095 samples → covers 1300.
+    With kernel_size=3 and num_blocks=9:
+      Receptive field = 1 + 2*(3-1)*(2^9 - 1) = 2045 samples → covers 1300.
     """
 
     def __init__(
@@ -146,8 +142,7 @@ class AxleTCN(nn.Module):
     def receptive_field(self) -> int:
         """Compute the theoretical receptive field of the network."""
         num_blocks  = len(self.network)
-        # parametrizations.weight_norm stores kernel_size in the original module
-        kernel_size = self.network[0].conv1.parametrizations.weight.original.shape[-1]
+        kernel_size = self.network[0].conv1.weight.shape[-1]
         rf = 1 + sum(2 * (kernel_size - 1) * (2 ** i) for i in range(num_blocks))
         return rf
 
